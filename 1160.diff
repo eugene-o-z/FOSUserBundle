@@ -1,0 +1,489 @@
+diff --git a/Controller/ProfileController.php b/Controller/ProfileController.php
+index a4fefa1..4b7c54c 100644
+--- a/Controller/ProfileController.php
++++ b/Controller/ProfileController.php
+@@ -19,6 +19,7 @@
+ use Symfony\Component\DependencyInjection\ContainerAware;
+ use Symfony\Component\HttpFoundation\Request;
+ use Symfony\Component\HttpFoundation\RedirectResponse;
++use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+ 
+ /**
+@@ -95,4 +96,34 @@ public function editAction(Request $request)
+             array('form' => $form->createView())
+         );
+     }
++
++    /**
++     * Receive the confirmation token from user email provider
++     */
++    public function confirmAction(Request $request, $token)
++    {
++        /** @var $userManager \FOS\UserBundle\Model\UserManagerInterface */
++        $userManager = $this->container->get('fos_user.user_manager');
++
++        $user = $userManager->findUserByConfirmationToken($token);
++
++        if (null === $user) {
++            throw new NotFoundHttpException(sprintf('The user with confirmation token "%s" does not exist', $token));
++        }
++
++        $user->setConfirmationToken(null);
++        $user->setEmail($user->getEmailPending());
++        $user->setEmailPending(null);
++
++        $userManager->updateUser($user);
++
++        $url = $this->container->get('router')->generate('fos_user_profile_show');
++        $response = new RedirectResponse($url);
++
++        /** @var $dispatcher \Symfony\Component\EventDispatcher\EventDispatcherInterface */
++        $dispatcher = $this->container->get('event_dispatcher');
++        $dispatcher->dispatch(FOSUserEvents::PROFILE_EDIT_EMAIL_CONFIRMED, new FilterUserResponseEvent($user, $request, $response));
++
++        return $response;
++    }
+ }
+diff --git a/EventListener/EmailConfirmationListener.php b/EventListener/EmailConfirmationListener.php
+index f075f21..2f51835 100644
+--- a/EventListener/EmailConfirmationListener.php
++++ b/EventListener/EmailConfirmationListener.php
+@@ -14,6 +14,7 @@
+ use FOS\UserBundle\FOSUserEvents;
+ use FOS\UserBundle\Event\FormEvent;
+ use FOS\UserBundle\Mailer\MailerInterface;
++use FOS\UserBundle\Model\UserManager;
+ use FOS\UserBundle\Util\TokenGeneratorInterface;
+ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+ use Symfony\Component\HttpFoundation\RedirectResponse;
+@@ -26,19 +27,22 @@ class EmailConfirmationListener implements EventSubscriberInterface
+     private $tokenGenerator;
+     private $router;
+     private $session;
++    private $userManager;
+ 
+-    public function __construct(MailerInterface $mailer, TokenGeneratorInterface $tokenGenerator, UrlGeneratorInterface $router, SessionInterface $session)
++    public function __construct(MailerInterface $mailer, TokenGeneratorInterface $tokenGenerator, UrlGeneratorInterface $router, SessionInterface $session, UserManager $userManager)
+     {
+         $this->mailer = $mailer;
+         $this->tokenGenerator = $tokenGenerator;
+         $this->router = $router;
+         $this->session = $session;
++        $this->userManager = $userManager;
+     }
+ 
+     public static function getSubscribedEvents()
+     {
+         return array(
+             FOSUserEvents::REGISTRATION_SUCCESS => 'onRegistrationSuccess',
++            FOSUserEvents::PROFILE_EDIT_SUCCESS => 'onProfileEditSuccess',
+         );
+     }
+ 
+@@ -59,4 +63,26 @@ public function onRegistrationSuccess(FormEvent $event)
+         $url = $this->router->generate('fos_user_registration_check_email');
+         $event->setResponse(new RedirectResponse($url));
+     }
++
++    public function onProfileEditSuccess(FormEvent $event)
++    {
++        /** @var $user \FOS\UserBundle\Model\UserInterface */
++        $user = $event->getForm()->getData();
++
++        $userUpdated = clone $user;
++        $this->userManager->reloadUser($user);
++
++        if ($userUpdated->getEmail() == $user->getEmail()) {
++            return;
++        }
++
++        $user->setEmailPending($userUpdated->getEmail());
++        if (null === $user->getConfirmationToken()) {
++            $confirmationToken = $this->tokenGenerator->generateToken();
++            $user->setConfirmationToken($confirmationToken);
++            $userUpdated->setConfirmationToken($confirmationToken);
++        }
++
++        $this->mailer->sendProfileConfirmationEmailMessage($userUpdated);
++    }
+ }
+diff --git a/EventListener/FlashListener.php b/EventListener/FlashListener.php
+index 11f9547..b4e66c8 100644
+--- a/EventListener/FlashListener.php
++++ b/EventListener/FlashListener.php
+@@ -25,6 +25,7 @@ class FlashListener implements EventSubscriberInterface
+         FOSUserEvents::GROUP_DELETE_COMPLETED => 'group.flash.deleted',
+         FOSUserEvents::GROUP_EDIT_COMPLETED => 'group.flash.updated',
+         FOSUserEvents::PROFILE_EDIT_COMPLETED => 'profile.flash.updated',
++        FOSUserEvents::PROFILE_EDIT_EMAIL_CONFIRMED => 'profile.flash.email_confirmed',
+         FOSUserEvents::REGISTRATION_COMPLETED => 'registration.flash.user_created',
+         FOSUserEvents::RESETTING_RESET_COMPLETED => 'resetting.flash.success',
+     );
+@@ -46,6 +47,7 @@ public static function getSubscribedEvents()
+             FOSUserEvents::GROUP_DELETE_COMPLETED => 'addSuccessFlash',
+             FOSUserEvents::GROUP_EDIT_COMPLETED => 'addSuccessFlash',
+             FOSUserEvents::PROFILE_EDIT_COMPLETED => 'addSuccessFlash',
++            FOSUserEvents::PROFILE_EDIT_EMAIL_CONFIRMED => 'addSuccessFlash',
+             FOSUserEvents::REGISTRATION_COMPLETED => 'addSuccessFlash',
+             FOSUserEvents::RESETTING_RESET_COMPLETED => 'addSuccessFlash',
+         );
+diff --git a/FOSUserEvents.php b/FOSUserEvents.php
+index 0b6cc17..b905f7c 100644
+--- a/FOSUserEvents.php
++++ b/FOSUserEvents.php
+@@ -121,6 +121,14 @@
+     const PROFILE_EDIT_COMPLETED = 'fos_user.profile.edit.completed';
+ 
+     /**
++     * The PROFILE_EDIT_EMAIL_CONFIRMED event occurs after confirming the email in the profile edit process.
++     *
++     * This event allows you to access the response which will be sent.
++     * The event listener method receives a FOS\UserBundle\Event\FilterUserResponseEvent instance.
++     */
++    const PROFILE_EDIT_EMAIL_CONFIRMED = 'fos_user.profile.edit_email.confirmed';
++
++    /**
+      * The REGISTRATION_INITIALIZE event occurs when the registration process is initialized.
+      *
+      * This event allows you to modify the default values of the user before binding the form.
+diff --git a/Mailer/Mailer.php b/Mailer/Mailer.php
+index 36bf99b..e0300cc 100644
+--- a/Mailer/Mailer.php
++++ b/Mailer/Mailer.php
+@@ -51,6 +51,20 @@ public function sendConfirmationEmailMessage(UserInterface $user)
+     /**
+      * {@inheritdoc}
+      */
++    public function sendProfileConfirmationEmailMessage(UserInterface $user)
++    {
++        $template = $this->parameters['profile.template'];
++        $url = $this->router->generate('fos_user_profile_confirm', array('token' => $user->getConfirmationToken()), true);
++        $rendered = $this->templating->render($template, array(
++            'user' => $user,
++            'confirmationUrl' =>  $url
++        ));
++        $this->sendEmailMessage($rendered, $this->parameters['from_email']['confirmation'], $user->getEmail());
++    }
++
++    /**
++     * {@inheritdoc}
++     */
+     public function sendResettingEmailMessage(UserInterface $user)
+     {
+         $template = $this->parameters['resetting.template'];
+diff --git a/Mailer/MailerInterface.php b/Mailer/MailerInterface.php
+index 146d98f..3163754 100644
+--- a/Mailer/MailerInterface.php
++++ b/Mailer/MailerInterface.php
+@@ -28,6 +28,15 @@
+     public function sendConfirmationEmailMessage(UserInterface $user);
+ 
+     /**
++     * Send an email to a user to confirm the email updated in profile
++     *
++     * @param UserInterface $user
++     *
++     * @return void
++     */
++    public function sendProfileConfirmationEmailMessage(UserInterface $user);
++
++    /**
+      * Send an email to a user to confirm the password reset
+      *
+      * @param UserInterface $user
+diff --git a/Mailer/NoopMailer.php b/Mailer/NoopMailer.php
+index 37e1615..ed95431 100644
+--- a/Mailer/NoopMailer.php
++++ b/Mailer/NoopMailer.php
+@@ -27,6 +27,11 @@ public function sendConfirmationEmailMessage(UserInterface $user)
+         // nothing happens.
+     }
+ 
++    public function sendProfileConfirmationEmailMessage(UserInterface $user)
++    {
++        // nothing happens.
++    }
++
+     public function sendResettingEmailMessage(UserInterface $user)
+     {
+         // nothing happens.
+diff --git a/Mailer/TwigSwiftMailer.php b/Mailer/TwigSwiftMailer.php
+index 09cbf8a..00608c0 100644
+--- a/Mailer/TwigSwiftMailer.php
++++ b/Mailer/TwigSwiftMailer.php
+@@ -45,6 +45,18 @@ public function sendConfirmationEmailMessage(UserInterface $user)
+         $this->sendMessage($template, $context, $this->parameters['from_email']['confirmation'], $user->getEmail());
+     }
+ 
++    public function sendProfileConfirmationEmailMessage(UserInterface $user)
++    {
++        $template = $this->parameters['template']['profile'];
++        $url = $this->router->generate('fos_user_profile_confirm', array('token' => $user->getConfirmationToken()), true);
++        $context = array(
++            'user' => $user,
++            'confirmationUrl' => $url
++        );
++
++        $this->sendMessage($template, $context, $this->parameters['from_email']['confirmation'], $user->getEmail());
++    }
++
+     public function sendResettingEmailMessage(UserInterface $user)
+     {
+         $template = $this->parameters['template']['resetting'];
+diff --git a/Model/User.php b/Model/User.php
+index f3fc7a9..3248473 100644
+--- a/Model/User.php
++++ b/Model/User.php
+@@ -45,6 +45,11 @@
+     protected $emailCanonical;
+ 
+     /**
++     * @var string
++     */
++    protected $emailPending;
++
++    /**
+      * @var boolean
+      */
+     protected $enabled;
+@@ -236,6 +241,11 @@ public function getEmailCanonical()
+         return $this->emailCanonical;
+     }
+ 
++    public function getEmailPending()
++    {
++        return $this->emailPending;
++    }
++
+     /**
+      * Gets the encrypted password.
+      *
+@@ -425,6 +435,13 @@ public function setEmailCanonical($emailCanonical)
+         return $this;
+     }
+ 
++    public function setEmailPending($emailPending)
++    {
++        $this->emailPending = $emailPending;
++
++        return $this;
++    }
++
+     public function setEnabled($boolean)
+     {
+         $this->enabled = (Boolean) $boolean;
+diff --git a/Model/UserInterface.php b/Model/UserInterface.php
+index 9886cb5..81a62ef 100644
+--- a/Model/UserInterface.php
++++ b/Model/UserInterface.php
+@@ -80,6 +80,22 @@ public function getEmailCanonical();
+     public function setEmailCanonical($emailCanonical);
+ 
+     /**
++     * Gets the email when confirmation is activate.
++     *
++     * @return string
++     */
++    public function getEmailPending();
++
++    /**
++     * Set the email waiting for confirmation.
++     *
++     * @param string $emailPending
++     *
++     * @return self
++     */
++    public function setEmailPending($emailPending);
++
++    /**
+      * Gets the plain password.
+      *
+      * @return string
+diff --git a/Resources/config/doctrine/model/User.couchdb.xml b/Resources/config/doctrine/model/User.couchdb.xml
+index 43afbca..a8b484f 100644
+--- a/Resources/config/doctrine/model/User.couchdb.xml
++++ b/Resources/config/doctrine/model/User.couchdb.xml
+@@ -7,6 +7,7 @@
+         <field name="usernameCanonical" fieldName="usernameCanonical" type="string" indexed="true" />
+         <field name="email" fieldName="email" type="string" indexed="true" />
+         <field name="emailCanonical" fieldName="emailCanonical" type="string" indexed="true" />
++        <field name="emailPending" fieldName="emailPending" type="string" />
+         <field name="enabled" fieldName="enabled" type="mixed" />
+         <field name="salt" fieldName="salt" type="string" />
+         <field name="password" fieldName="password" type="string" />
+diff --git a/Resources/config/doctrine/model/User.mongodb.xml b/Resources/config/doctrine/model/User.mongodb.xml
+index 5495df5..6d768ec 100644
+--- a/Resources/config/doctrine/model/User.mongodb.xml
++++ b/Resources/config/doctrine/model/User.mongodb.xml
+@@ -14,6 +14,8 @@
+ 
+         <field name="emailCanonical" fieldName="emailCanonical" type="string" />
+ 
++        <field name="emailPending" fieldName="emailPending" type="string" />
++
+         <field name="enabled" fieldName="enabled" type="boolean" />
+ 
+         <field name="salt" fieldName="salt" type="string" />
+diff --git a/Resources/config/doctrine/model/User.orm.xml b/Resources/config/doctrine/model/User.orm.xml
+index d029621..b94bc70 100644
+--- a/Resources/config/doctrine/model/User.orm.xml
++++ b/Resources/config/doctrine/model/User.orm.xml
+@@ -14,6 +14,8 @@
+ 
+         <field name="emailCanonical" column="email_canonical" type="string" length="255" unique="true" />
+ 
++        <field name="emailPending" column="email_pending" type="string" length="255" nullable="true" />
++
+         <field name="enabled" column="enabled" type="boolean" />
+ 
+         <field name="salt" column="salt" type="string" />
+diff --git a/Resources/config/email_confirmation.xml b/Resources/config/email_confirmation.xml
+index 281a6bb..d164b6e 100644
+--- a/Resources/config/email_confirmation.xml
++++ b/Resources/config/email_confirmation.xml
+@@ -11,6 +11,7 @@
+             <argument type="service" id="fos_user.util.token_generator" />
+             <argument type="service" id="router" />
+             <argument type="service" id="session" />
++            <argument type="service" id="fos_user.user_manager" />
+         </service>
+     </services>
+ 
+diff --git a/Resources/config/mailer.xml b/Resources/config/mailer.xml
+index 20f3777..212a2f9 100644
+--- a/Resources/config/mailer.xml
++++ b/Resources/config/mailer.xml
+@@ -7,6 +7,7 @@
+     <parameters>
+         <parameter key="fos_user.resetting.email.template">FOSUserBundle:Resetting:email.txt.twig</parameter>
+         <parameter key="fos_user.registration.confirmation.template">FOSUserBundle:Registration:email.txt.twig</parameter>
++        <parameter key="fos_user.profile.confirmation.template">FOSUserBundle:Profile:email.txt.twig</parameter>
+     </parameters>
+ 
+     <services>
+@@ -16,6 +17,7 @@
+             <argument type="service" id="templating" />
+             <argument type="collection">
+                 <argument key="confirmation.template">%fos_user.registration.confirmation.template%</argument>
++                <argument key="profile.template">%fos_user.profile.confirmation.template%</argument>
+                 <argument key="resetting.template">%fos_user.resetting.email.template%</argument>
+                 <argument key="from_email" type="collection">
+                     <argument key="confirmation">%fos_user.registration.confirmation.from_email%</argument>
+@@ -31,6 +33,7 @@
+             <argument type="collection">
+                 <argument key="template" type="collection">
+                     <argument key="confirmation">%fos_user.registration.confirmation.template%</argument>
++                    <argument key="profile">%fos_user.profile.confirmation.template%</argument>
+                     <argument key="resetting">%fos_user.resetting.email.template%</argument>
+                 </argument>
+                 <argument key="from_email" type="collection">
+diff --git a/Resources/config/propel/schema.xml b/Resources/config/propel/schema.xml
+index b22c9d5..340e4df 100644
+--- a/Resources/config/propel/schema.xml
++++ b/Resources/config/propel/schema.xml
+@@ -14,6 +14,7 @@
+         <unique>
+             <unique-column name="email_canonical" />
+         </unique>
++        <column name="email_pending" type="varchar" size="255" />
+ 
+         <column name="enabled" type="boolean" defaultValue="false" />
+         <column name="salt" type="varchar" size="255" required="true" />
+diff --git a/Resources/config/routing/profile.xml b/Resources/config/routing/profile.xml
+index fae5ad4..c228292 100644
+--- a/Resources/config/routing/profile.xml
++++ b/Resources/config/routing/profile.xml
+@@ -13,4 +13,9 @@
+         <default key="_controller">FOSUserBundle:Profile:edit</default>
+     </route>
+ 
++    <route id="fos_user_profile_confirm" pattern="/edit/confirm/{token}">
++        <default key="_controller">FOSUserBundle:Profile:confirm</default>
++        <requirement key="_method">GET</requirement>
++    </route>
++
+ </routes>
+diff --git a/Resources/translations/FOSUserBundle.en.yml b/Resources/translations/FOSUserBundle.en.yml
+index c815777..360861f 100644
+--- a/Resources/translations/FOSUserBundle.en.yml
++++ b/Resources/translations/FOSUserBundle.en.yml
+@@ -26,10 +26,21 @@ profile:
+     show:
+         username: Username
+         email: Email
++        email_pending: The email %emailPending% is pending confirmation. An email has been sent with a confirmation link.
+     edit:
+         submit: Update
+     flash:
+         updated: The profile has been updated
++        email_confirmed: The email has been updated
++    email:
++        subject: Change email
++        message: |
++            Hello %username%!
++
++            To finish changing your new email - please visit %confirmationUrl%
++
++            Regards,
++            the Team.
+ 
+ # Password change
+ change_password:
+diff --git a/Resources/translations/FOSUserBundle.fr.yml b/Resources/translations/FOSUserBundle.fr.yml
+index 118b20b..5bc62e3 100644
+--- a/Resources/translations/FOSUserBundle.fr.yml
++++ b/Resources/translations/FOSUserBundle.fr.yml
+@@ -26,10 +26,21 @@ profile:
+     show:
+         username: Nom d'utilisateur
+         email: Adresse e-mail
++        email_pending: L'adresse e-mail %emailPending% est en attente de confirmation. Un e-mail vous a été envoyé avec un lien de confirmation.
+     edit:
+         submit: Mettre à jour
+     flash:
+         updated: Le profil a été mis à jour
++        email_confirmed: L'email a été mis à jour
++    email:
++        subject: Modification de votre email
++        message: |
++            Bonjour %username% !
++
++            Pour valider la modification de votre email, merci de vous rendre sur %confirmationUrl%
++
++            Cordialement,
++            L'équipe
+ 
+ # Password change
+ change_password:
+diff --git a/Resources/views/Profile/email.txt.twig b/Resources/views/Profile/email.txt.twig
+new file mode 100644
+index 0000000..1088de9
+--- /dev/null
++++ b/Resources/views/Profile/email.txt.twig
+@@ -0,0 +1,12 @@
++{% trans_default_domain 'FOSUserBundle' %}
++{% block subject %}
++{% autoescape false %}
++{{ 'profile.email.subject'|trans({'%username%': user.username, '%confirmationUrl%': confirmationUrl}) }}
++{% endautoescape %}
++{% endblock %}
++{% block body_text %}
++{% autoescape false %}
++{{ 'profile.email.message'|trans({'%username%': user.username, '%confirmationUrl%': confirmationUrl}) }}
++{% endautoescape %}
++{% endblock %}
++{% block body_html %}{% endblock %}
+diff --git a/Resources/views/Profile/show_content.html.twig b/Resources/views/Profile/show_content.html.twig
+index 3c819d2..ae9ccbc 100644
+--- a/Resources/views/Profile/show_content.html.twig
++++ b/Resources/views/Profile/show_content.html.twig
+@@ -4,3 +4,8 @@
+     <p>{{ 'profile.show.username'|trans }}: {{ user.username }}</p>
+     <p>{{ 'profile.show.email'|trans }}: {{ user.email }}</p>
+ </div>
++{% if user.emailPending is not empty %}
++<div>
++    <p>{{ 'profile.show.email_pending'|trans({'%emailPending%': user.emailPending}) }}</p>
++</div>
++{% endif %}
