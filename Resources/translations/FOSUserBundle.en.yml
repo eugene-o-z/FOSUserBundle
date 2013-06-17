@@ -25,6 +25,16 @@ profile:
         submit: Update
     flash:
         updated: 'The profile has been updated'
+        email_confirmed: The email has been updated
+    email:
+        subject: Change email
+        message: |
+            Hello %username%!
+
+            To finish changing your new email - please visit %confirmationUrl%
+
+            Regards,
+            the Team.
 
 change_password:
     submit: 'Change password'
