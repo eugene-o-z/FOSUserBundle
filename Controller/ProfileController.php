@@ -24,6 +24,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use FOS\UserBundle\Event\UserEvent;
 
 /**
  * Controller managing the user profile.
@@ -101,5 +102,50 @@ class ProfileController extends Controller
         return $this->render('@FOSUser/Profile/edit.html.twig', array(
             'form' => $form->createView(),
         ));
+    }
+
+    /**
+     * Confirm user`s email update.
+     *
+     * @param Request $request
+     * @param string $token
+     * @return \Symfony\Component\HttpFoundation\RedirectResponse
+     */
+    public function confirmEmailUpdateAction(Request $request, $token)
+    {
+        $userManager = $this->container->get('fos_user.user_manager');
+
+        $user = $userManager->findUserByConfirmationToken($token);
+
+        // If user was not found throw 404 exception
+        if (!$user) {
+            throw $this->createNotFoundException('Invalid confirmation link. Can not update the email address.');
+        }
+
+        // Show invalid token message and redirect if users id does not match
+        if ($user->getId() !== $this->getUser()->getId()) {
+
+            throw new AccessDeniedException('This user does not have access to this section.');
+        }
+
+        /** @var EmailUpdateConfirmation $emailUpdateConfirmation */
+        $emailUpdateConfirmation = $this->get('fos_user.listener.email_confirmation');
+
+        $emailUpdateConfirmation->setUser($user);
+
+        $newEmail = $emailUpdateConfirmation->fetchEncryptedEmailFromConfirmationLink($request->get('target'));
+
+        // Update user email
+        if ($newEmail) {
+            $user->setConfirmationToken($emailUpdateConfirmation->getEmailConfirmedToken());
+            $user->setEmail($newEmail);
+        }
+
+        $userManager->updateUser($user);
+
+        $event = new UserEvent($user);
+        $this->get('event_dispatcher')->dispatch( FOSUserEvents::EMAIL_UPDATE_SUCCESS, $event);
+
+        return $this->redirect($this->generateUrl("fos_user_profile_show"));
     }
 }
