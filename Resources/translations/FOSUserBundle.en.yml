@@ -36,6 +36,20 @@ change_password:
         success: The password has been changed
 
 # Registration
+email_update:
+    flash:
+        info: 'Please confirm your email address'
+        success: 'E-mail was successfully updated'
+    email:
+        subject: 'Reset Email'
+        message: |
+            Hello %username%!
+
+            To reset your email - please visit %confirmationUrl%
+
+            Regards,
+            the Team.
+
 registration:
     check_email: An email has been sent to %email%. It contains an activation link you must click to activate your account.
     confirmed: Congrats %username%, your account is now activated.

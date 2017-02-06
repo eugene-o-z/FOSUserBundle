@@ -191,4 +191,107 @@ final class FOSUserEvents
      * The event listener method receives a FOS\UserBundle\Event\UserEvent instance.
      */
     const SECURITY_IMPLICIT_LOGIN = 'fos_user.security.implicit_login';
+
+    /**
+     * The RESETTING_SEND_EMAIL_INITIALIZE event occurs when the send email process is initialized.
+     *
+     * This event allows you to set the response to bypass the email confirmation processing.
+     * The event listener method receives a FOS\UserBundle\Event\GetResponseNullableUserEvent instance.
+     *
+     * @Event("FOS\UserBundle\Event\GetResponseNullableUserEvent")
+     */
+    const RESETTING_SEND_EMAIL_INITIALIZE = 'fos_user.resetting.send_email.initialize';
+
+    /**
+     * The RESETTING_SEND_EMAIL_CONFIRM event occurs when all prerequisites to send email are
+     * confirmed and before the mail is sent.
+     *
+     * This event allows you to set the response to bypass the email sending.
+     * The event listener method receives a FOS\UserBundle\Event\GetResponseUserEvent instance.
+     *
+     * @Event("FOS\UserBundle\Event\GetResponseUserEvent")
+     */
+    const RESETTING_SEND_EMAIL_CONFIRM = 'fos_user.resetting.send_email.confirm';
+
+    /**
+     * The RESETTING_SEND_EMAIL_COMPLETED event occurs after the email is sent.
+     *
+     * This event allows you to set the response to bypass the the redirection after the email is sent.
+     * The event listener method receives a FOS\UserBundle\Event\GetResponseUserEvent instance.
+     *
+     * @Event("FOS\UserBundle\Event\GetResponseUserEvent")
+     */
+    const RESETTING_SEND_EMAIL_COMPLETED = 'fos_user.resetting.send_email.completed';
+
+    /**
+     * The USER_CREATED event occurs when the user is created with UserManipulator.
+     *
+     * This event allows you to access the created user and to add some behaviour after the creation.
+     *
+     * @Event("FOS\UserBundle\Event\UserEvent")
+     */
+    const USER_CREATED = 'fos_user.user.created';
+
+    /**
+     * The USER_PASSWORD_CHANGED event occurs when the user is created with UserManipulator.
+     *
+     * This event allows you to access the created user and to add some behaviour after the password change.
+     *
+     * @Event("FOS\UserBundle\Event\UserEvent")
+     */
+    const USER_PASSWORD_CHANGED = 'fos_user.user.password_changed';
+
+    /**
+     * The USER_ACTIVATED event occurs when the user is created with UserManipulator.
+     *
+     * This event allows you to access the activated user and to add some behaviour after the activation.
+     *
+     * @Event("FOS\UserBundle\Event\UserEvent")
+     */
+    const USER_ACTIVATED = 'fos_user.user.activated';
+
+    /**
+     * The USER_DEACTIVATED event occurs when the user is created with UserManipulator.
+     *
+     * This event allows you to access the deactivated user and to add some behaviour after the deactivation.
+     *
+     * @Event("FOS\UserBundle\Event\UserEvent")
+     */
+    const USER_DEACTIVATED = 'fos_user.user.deactivated';
+
+    /**
+     * The USER_PROMOTED event occurs when the user is created with UserManipulator.
+     *
+     * This event allows you to access the promoted user and to add some behaviour after the promotion.
+     *
+     * @Event("FOS\UserBundle\Event\UserEvent")
+     */
+    const USER_PROMOTED = 'fos_user.user.promoted';
+
+    /**
+     * The USER_DEMOTED event occurs when the user is created with UserManipulator.
+     *
+     * This event allows you to access the demoted user and to add some behaviour after the demotion.
+     *
+     * @Event("FOS\UserBundle\Event\UserEvent")
+     */
+    const USER_DEMOTED = 'fos_user.user.demoted';
+
+    /**
+     * The EMAIL_UPDATE_INITIALIZE event occurs when the email update process is initialized.
+     *
+     * This event allows you to access the user and to add some behaviour after email update is initialized..
+     *
+     * @Event("FOS\UserBundle\Event\UserEvent")
+     */
+    const EMAIL_UPDATE_INITIALIZE = 'fos_user.update_email.initialize';
+
+    /**
+     * The EMAIL_UPDATE_SUCCESS event occurs when the email was successfully updated through confirmation link.
+     *
+     * This event allows you to access the user and to add some behaviour after email was confirmed and updated..
+     *
+     * @Event("FOS\UserBundle\Event\UserEvent")
+     */
+    const EMAIL_UPDATE_SUCCESS = 'fos_user.update_email.success';
 }

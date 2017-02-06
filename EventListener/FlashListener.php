@@ -27,6 +27,8 @@ class FlashListener implements EventSubscriberInterface
         FOSUserEvents::PROFILE_EDIT_COMPLETED => 'profile.flash.updated',
         FOSUserEvents::REGISTRATION_COMPLETED => 'registration.flash.user_created',
         FOSUserEvents::RESETTING_RESET_COMPLETED => 'resetting.flash.success',
+        FOSUserEvents::EMAIL_UPDATE_SUCCESS => 'email_update.flash.success',
+        FOSUserEvents::EMAIL_UPDATE_INITIALIZE => 'email_update.flash.info'
     );
 
     private $session;
@@ -48,6 +50,8 @@ class FlashListener implements EventSubscriberInterface
             FOSUserEvents::PROFILE_EDIT_COMPLETED => 'addSuccessFlash',
             FOSUserEvents::REGISTRATION_COMPLETED => 'addSuccessFlash',
             FOSUserEvents::RESETTING_RESET_COMPLETED => 'addSuccessFlash',
+            FOSUserEvents::EMAIL_UPDATE_SUCCESS => 'addSuccessFlash',
+            FOSUserEvents::EMAIL_UPDATE_INITIALIZE => 'addInfoFlash',
         );
     }
 
@@ -65,6 +69,25 @@ class FlashListener implements EventSubscriberInterface
         $this->session->getFlashBag()->add('success', $this->trans(self::$successMessages[$eventName]));
     }
 
+    /**
+     * @param Event  $event
+     * @param string $eventName
+     */
+    public function addInfoFlash(Event $event, $eventName)
+    {
+        if (!isset(self::$successMessages[$eventName])) {
+            throw new \InvalidArgumentException('This event does not correspond to a known flash message');
+        }
+
+        $this->session->getFlashBag()->add('info', $this->trans(self::$successMessages[$eventName]));
+    }
+
+    /**
+     * @param string$message
+     * @param array $params
+     *
+     * @return string
+     */
     private function trans($message, array $params = array())
     {
         return $this->translator->trans($message, $params, 'FOSUserBundle');
