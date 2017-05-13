@@ -6,6 +6,7 @@ use Doctrine\Common\EventSubscriber;
 use Doctrine\Common\Persistence\Event\LifecycleEventArgs;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use FOS\UserBundle\Model\UserInterface;
+use FOS\UserBundle\Services\EmailConfirmation\EmailUpdateConfirmation;
 
 
 /**
@@ -15,18 +16,18 @@ use FOS\UserBundle\Model\UserInterface;
 class EmailUpdateListener implements EventSubscriber
 {
     /**
-     * @var ContainerInterface
+     * @var EmailUpdateConfirmation
      */
-    private $container;
+    private $emailUpdateConfirmation;
 
     /**
      * Constructor
      *
-     * @param ContainerInterface $container
+     * @param EmailUpdateConfirmation $emailUpdateConfirmation
      */
-    public function __construct(ContainerInterface $container)
+    public function __construct(EmailUpdateConfirmation $emailUpdateConfirmation)
     {
-        $this->container = $container;
+        $this->emailUpdateConfirmation = $emailUpdateConfirmation;
     }
 
     public function getSubscribedEvents()
@@ -43,32 +44,31 @@ class EmailUpdateListener implements EventSubscriber
      */
     public function preUpdate(LifecycleEventArgs $args)
     {
-        $object = $args->getObject();
-        if ($object instanceof UserInterface) {
+        $user = $args->getObject();
 
-            $emailUpdateConfirmation = $this->container->get('azine_platform.emailupdateconfirmation');
+        if ($user instanceof UserInterface) {
 
-            if($object->getConfirmationToken() != $emailUpdateConfirmation->getEmailConfirmedToken() && isset($args->getEntityChangeSet()['email'])){
+            if($user->getConfirmationToken() != $this->emailUpdateConfirmation->getEmailConfirmedToken() && isset($args->getEntityChangeSet()['email'])){
 
-                $currentEmail = $args->getEntityChangeSet()['email'][0];
+                $oldEmail = $args->getEntityChangeSet()['email'][0];
                 $newEmail = $args->getEntityChangeSet()['email'][1];
 
-                $object->setEmail($currentEmail);
+                $user->setEmail($oldEmail);
 
                 // Configure email confirmation
-                $emailUpdateConfirmation->setUser($object);
-                $emailUpdateConfirmation->setEmail($newEmail);
-                $emailUpdateConfirmation->setConfirmationRoute('fos_user_update_email_confirm');
-                $emailUpdateConfirmation->getMailer()->sendUpdateEmailConfirmation(
-                    $object,
-                    $emailUpdateConfirmation->generateConfirmationLink(),
+                $this->emailUpdateConfirmation->setUser($user);
+                $this->emailUpdateConfirmation->setEmail($newEmail);
+                $this->emailUpdateConfirmation->setConfirmationRoute('fos_user_update_email_confirm');
+                $this->emailUpdateConfirmation->getMailer()->sendUpdateEmailConfirmation(
+                    $user,
+                    $this->emailUpdateConfirmation->generateConfirmationLink(),
                     $newEmail
                 );
             }
 
-            if($object->getConfirmationToken() == $emailUpdateConfirmation->getEmailConfirmedToken()){
+            if($user->getConfirmationToken() == $this->emailUpdateConfirmation->getEmailConfirmedToken()){
 
-                $object->setConfirmationToken(null);
+                $user->setConfirmationToken(null);
             }
         }
     }

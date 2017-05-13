@@ -12,6 +12,17 @@
             <argument type="service" id="router" />
             <argument type="service" id="session" />
         </service>
+
+        <service id="fos_user.email_update_confirmation" class="FOS\UserBundle\Services\EmailConfirmation\EmailUpdateConfirmation">
+            <argument type="service" id="router" />
+            <argument type="service" id="fos_user.util.token_generator" />
+            <argument type="service" id="fos_user.mailer.twig_swift" />
+            <argument type="service" id="fos_user.email_encryption" />
+            <argument type="service" id="event_dispatcher" />
+        </service>
+
+        <service id="fos_user.email_encryption" class="FOS\UserBundle\Services\EmailConfirmation\EmailEncryption">
+        </service>
     </services>
 
 </container>

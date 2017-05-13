@@ -124,7 +124,6 @@ class TwigSwiftMailer implements MailerInterface
      * Send confirmation link to specified new user email.
      * @param UserInterface $user
      * @param $confirmationUrl
-     * @param $templateName
      * @param $toEmail
      * @return bool
      */
