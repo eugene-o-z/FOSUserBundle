@@ -44,10 +44,12 @@ class EmailUpdateListener implements EventSubscriber
      */
     public function preUpdate(LifecycleEventArgs $args)
     {
-        $user = $args->getObject();
+        $object = $args->getObject();
 
-        if ($user instanceof UserInterface) {
+        if ($object instanceof UserInterface) {
 
+            $user = $object;
+            
             if($user->getConfirmationToken() != $this->emailUpdateConfirmation->getEmailConfirmedToken() && isset($args->getEntityChangeSet()['email'])){
 
                 $oldEmail = $args->getEntityChangeSet()['email'][0];
