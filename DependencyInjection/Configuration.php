@@ -103,6 +103,7 @@ class Configuration implements ConfigurationInterface
                             ->end()
                         ->end()
                         ->arrayNode('email_update_confirmation')
+                            ->addDefaultsIfNotSet()
                             ->children()
                                 ->booleanNode('enabled')->defaultFalse()->end()
                                 ->scalarNode('email_template')->defaultValue('@FOSUser/Profile/email_update_confirmation.html.twig')->end()
