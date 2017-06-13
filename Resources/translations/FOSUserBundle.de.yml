@@ -29,16 +29,16 @@ change_password:
         success: 'Das Passwort wurde geändert.'
 email_update:
     flash:
-        info: 'Bitte bestätigen Sie Ihre E-Mail-Adresse'
-        success: 'E-mail wurde erfolgreich aktualisiert'
+        info: 'Bitte überprüfen Sie das Postfach der neuen Email-Adresse und klicken Sie den Link im Bestätigungsmail.'
+        success: 'E-mail wurde erfolgreich aktualisiert.'
     email:
-        subject: 'Email zurücksetzen'
+        subject: 'Neue Email-Adresse Aktivierung bestätigen.'
         message: |
             Hallo %username%!
 
-            Besuchen Sie bitte folgende Seite, um Ihr Email zurückzusetzen: %confirmationUrl%
+            Um Ihre neue Email-Adresse zu aktivieren, besuchen Sie bitten den folgenden Link: %confirmationUrl%
 
-            Mit besten Grüßen,
+            Freundliche Grüße,
             das Team.
 registration:
     check_email: 'Eine E-Mail wurde an %email% gesendet. Sie enthält einen Link, den Sie anklicken müssen, um Ihr Benutzerkonto zu bestätigen.'
