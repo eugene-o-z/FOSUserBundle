@@ -11,6 +11,7 @@ use FOS\UserBundle\Services\EmailConfirmation\Interfaces\EmailUpdateConfirmation
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use FOS\UserBundle\FOSUserEvents;
 use FOS\UserBundle\Event\UserEvent;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Class EmailUpdateConfirmation
@@ -99,10 +100,10 @@ class EmailUpdateConfirmation implements EmailUpdateConfirmationInterface
     /**
      * Generate new confirmation link for new email based on user confirmation
      * token and hashed new user email.
-     *
+     * @param Request $request
      * @return string
      */
-    public function generateConfirmationLink()
+    public function generateConfirmationLink(Request $request)
     {
         $this->emailEncryption->setUserConfirmationToken(
             $this->getUserConfirmationToken()
@@ -112,7 +113,7 @@ class EmailUpdateConfirmation implements EmailUpdateConfirmationInterface
 
         $confirmationParams = array('token'  => $this->user->getConfirmationToken(), 'target' => $encryptedEmail);
 
-        $event = new UserEvent($this->user);
+        $event = new UserEvent($this->user, $request);
         $this->eventDispatcher->dispatch(FOSUserEvents::EMAIL_UPDATE_INITIALIZE, $event);
 
         return $this->router->generate(

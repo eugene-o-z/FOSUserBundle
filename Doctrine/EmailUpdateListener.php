@@ -7,6 +7,7 @@ use Doctrine\Common\Persistence\Event\LifecycleEventArgs;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use FOS\UserBundle\Model\UserInterface;
 use FOS\UserBundle\Services\EmailConfirmation\EmailUpdateConfirmation;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 
 /**
@@ -21,13 +22,25 @@ class EmailUpdateListener implements EventSubscriber
     private $emailUpdateConfirmation;
 
     /**
+     * @var ContainerInterface
+     */
+    private $container;
+
+    /**
+     * @var RequestStack
+     */
+    private $requestStack;
+
+    /**
      * Constructor
      *
-     * @param EmailUpdateConfirmation $emailUpdateConfirmation
+     * @param ContainerInterface $container
+     * @param RequestStack $requestStack
      */
-    public function __construct(EmailUpdateConfirmation $emailUpdateConfirmation)
+    public function __construct(ContainerInterface $container, RequestStack $requestStack)
     {
-        $this->emailUpdateConfirmation = $emailUpdateConfirmation;
+        $this->container = $container;
+        $this->requestStack = $requestStack;
     }
 
     public function getSubscribedEvents()
@@ -49,7 +62,11 @@ class EmailUpdateListener implements EventSubscriber
         if ($object instanceof UserInterface) {
 
             $user = $object;
-            
+
+            if (null === $this->emailUpdateConfirmation) {
+                $this->emailUpdateConfirmation = $this->container->get('fos_user.email_update_confirmation');
+            }
+
             if($user->getConfirmationToken() != $this->emailUpdateConfirmation->getEmailConfirmedToken() && isset($args->getEntityChangeSet()['email'])){
 
                 $oldEmail = $args->getEntityChangeSet()['email'][0];
@@ -63,7 +80,7 @@ class EmailUpdateListener implements EventSubscriber
                 $this->emailUpdateConfirmation->setConfirmationRoute('fos_user_update_email_confirm');
                 $this->emailUpdateConfirmation->getMailer()->sendUpdateEmailConfirmation(
                     $user,
-                    $this->emailUpdateConfirmation->generateConfirmationLink(),
+                    $this->emailUpdateConfirmation->generateConfirmationLink($this->requestStack->getCurrentRequest()),
                     $newEmail
                 );
             }
