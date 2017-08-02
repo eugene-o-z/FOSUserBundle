@@ -129,7 +129,7 @@ class ProfileController extends Controller
         }
 
         /** @var EmailUpdateConfirmation $emailUpdateConfirmation */
-        $emailUpdateConfirmation = $this->get('fos_user.listener.email_confirmation');
+        $emailUpdateConfirmation = $this->get('fos_user.email_update_confirmation');
 
         $emailUpdateConfirmation->setUser($user);
 
@@ -143,7 +143,7 @@ class ProfileController extends Controller
 
         $userManager->updateUser($user);
 
-        $event = new UserEvent($user);
+        $event = new UserEvent($user, $request);
         $this->get('event_dispatcher')->dispatch( FOSUserEvents::EMAIL_UPDATE_SUCCESS, $event);
 
         return $this->redirect($this->generateUrl("fos_user_profile_show"));
