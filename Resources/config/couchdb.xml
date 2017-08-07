@@ -24,6 +24,11 @@
         <service id="fos_user.user_listener" class="FOS\UserBundle\Doctrine\CouchDB\UserListener" public="false">
             <argument type="service" id="service_container" />
         </service>
+
+        <service id="fos_user.email_update_listener" class="FOS\UserBundle\Doctrine\EmailUpdateListener" public="false">
+            <argument type="service" id="service_container" />
+            <argument type="service" id="request_stack" />
+        </service>
     </services>
 
 </container>
