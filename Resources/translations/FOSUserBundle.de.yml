@@ -27,6 +27,19 @@ change_password:
     submit: 'Passwort ändern'
     flash:
         success: 'Das Passwort wurde geändert.'
+email_update:
+    flash:
+        info: 'Bitte bestätigen Sie Ihre E-Mail-Adresse'
+        success: 'E-mail wurde erfolgreich aktualisiert'
+    email:
+        subject: 'Email zurücksetzen'
+        message: |
+            Hallo %username%!
+
+            Besuchen Sie bitte folgende Seite, um Ihr Email zurückzusetzen: %confirmationUrl%
+
+            Mit besten Grüßen,
+            das Team.
 registration:
     check_email: 'Eine E-Mail wurde an %email% gesendet. Sie enthält einen Link, den Sie anklicken müssen, um Ihr Benutzerkonto zu bestätigen.'
     confirmed: 'Glückwunsch %username%, Ihr Benutzerkonto ist jetzt bestätigt.'
@@ -43,7 +56,19 @@ registration:
 
             Mit besten Grüßen,
             das Team.
+email_update:
+    flash:
+        info: 'Bitte bestätigen Sie Ihre E-Mail-Adresse'
+        success: 'E-mail wurde erfolgreich aktualisiert'
+    email:
+        subject: 'Email zurücksetzen'
+        message: |
+            Hallo %username%!
 
+            Besuchen Sie bitte folgende Seite, um Ihr Email zurückzusetzen: %confirmationUrl%
+
+            Mit besten Grüßen,
+            das Team.
 resetting:
     check_email: |
         Eine E-Mail wurde verschickt. Sie beinhaltet einen Link zum Zurücksetzen des Passwortes.

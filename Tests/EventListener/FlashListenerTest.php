@@ -44,4 +44,9 @@ class FlashListenerTest extends \PHPUnit_Framework_TestCase
     {
         $this->listener->addSuccessFlash($this->event, FOSUserEvents::CHANGE_PASSWORD_COMPLETED);
     }
+
+    public function testAddInfoFlash()
+    {
+        $this->listener->addInfoFlash($this->event, FOSUserEvents::CHANGE_PASSWORD_COMPLETED);
+    }
 }

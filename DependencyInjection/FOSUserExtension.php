@@ -93,6 +93,12 @@ class FOSUserExtension extends Extension
             }
         }
 
+
+        if ($config['profile']['email_update_confirmation']['enabled']) {
+            $listenerDefinition = $container->getDefinition('fos_user.email_update_listener');
+            $listenerDefinition->addTag(self::$doctrineDrivers[$config['db_driver']]['tag']);
+        }
+
         if ($config['use_username_form_type']) {
             $loader->load('username_form_type.xml');
         }
@@ -135,6 +141,8 @@ class FOSUserExtension extends Extension
     private function loadProfile(array $config, ContainerBuilder $container, XmlFileLoader $loader)
     {
         $loader->load('profile.xml');
+
+        $container->setParameter('fos_user.email_update_confirmation.template', $config['email_update_confirmation']['email_template']);
 
         $this->remapParametersNamespaces($config, $container, array(
             'form' => 'fos_user.profile.form.%s',
