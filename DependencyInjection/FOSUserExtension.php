@@ -95,25 +95,8 @@ class FOSUserExtension extends Extension
 
 
         if ($config['profile']['email_update_confirmation']['enabled']) {
-            switch ($config['db_driver']) {
-                case 'orm':
-                    $container->getDefinition('fos_user.email_update_listener')->addTag('doctrine.event_subscriber');
-                    break;
-
-                case 'mongodb':
-                    $container->getDefinition('fos_user.email_update_listener')->addTag('doctrine_mongodb.odm.event_subscriber');
-                    break;
-
-                case 'couchdb':
-                    $container->getDefinition('fos_user.email_update_listener')->addTag('doctrine_couchdb.event_subscriber');
-                    break;
-
-                case 'propel':
-                    break;
-
-                default:
-                    break;
-            }
+            $listenerDefinition = $container->getDefinition('fos_user.email_update_listener');
+            $listenerDefinition->addTag(self::$doctrineDrivers[$config['db_driver']]['tag']);
         }
 
         if ($config['use_username_form_type']) {

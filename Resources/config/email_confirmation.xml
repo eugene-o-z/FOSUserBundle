@@ -5,14 +5,6 @@
     xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
 
     <services>
-        <service id="fos_user.listener.email_confirmation" class="FOS\UserBundle\EventListener\EmailConfirmationListener">
-            <tag name="kernel.event_subscriber" />
-            <argument type="service" id="fos_user.mailer" />
-            <argument type="service" id="fos_user.util.token_generator" />
-            <argument type="service" id="router" />
-            <argument type="service" id="session" />
-        </service>
-
         <service id="fos_user.email_update_confirmation" class="FOS\UserBundle\Services\EmailConfirmation\EmailUpdateConfirmation">
             <argument type="service" id="router" />
             <argument type="service" id="fos_user.util.token_generator" />
