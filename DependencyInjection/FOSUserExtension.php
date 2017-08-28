@@ -93,7 +93,6 @@ class FOSUserExtension extends Extension
             }
         }
 
-
         if ($config['profile']['email_update_confirmation']['enabled']) {
             $listenerDefinition = $container->getDefinition('fos_user.email_update_listener');
             $listenerDefinition->addTag(self::$doctrineDrivers[$config['db_driver']]['tag']);

@@ -99,8 +99,8 @@ class FlashListener implements EventSubscriberInterface
 
         $this->session->getFlashBag()->add('info', $this->trans(self::$successMessages[$eventName]));
     }
-    
-    /**
+
+  /**
      * @param string$message
      * @param array $params
      *
